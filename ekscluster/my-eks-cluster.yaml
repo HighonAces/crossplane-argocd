@@ -1,32 +1,32 @@
-# apiVersion: srujanpakanati.com/v1alpha1
-# kind: EKSCluster
-# metadata:
-#   name: my-eks-cluster
-#   namespace: default
-# spec:
-#   parameters:
-#     clusterName: my-eks-cluster
-#     region: us-east-2
-#     kubernetesVersion: "1.33"
-#     accessList:
-#       - name: developer-role
-#         roleARN: "arn:aws:iam::266735840702:role/eks-dev-role-to-test-crossplane" # Replace with your IAM Role ARN
-#         policies:
-#           - "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-#           - "arn:aws:iam::aws:policy/AmazonEKSServicePolicy"
-#     addons:
-#       - name: vpc-cni
-#         version: "v1.20.1-eksbuild.3"
-#       - name: coredns
-#         version: "v1.12.3-eksbuild.1"
-#       - name: kube-proxy
-#         version: "v1.33.3-eksbuild.6"
-#     vpcId: "vpc-0b10f66253a3beba8" # Replace with your VPC ID
-#     subnetIds:
-#       - "subnet-0c9013275d430f56f" # Replace with your subnet IDs
-#       - "subnet-08970ab5c20c76ee4"
-#   crossplane:
-#     compositionSelector:
-#       matchLabels:
-#         provider: aws
-#         workload: ekscluster
+apiVersion: srujanpakanati.com/v1alpha1
+kind: EKSCluster
+metadata:
+  name: my-eks-cluster
+  namespace: default
+spec:
+  parameters:
+    clusterName: my-eks-cluster
+    region: us-east-2
+    kubernetesVersion: "1.33"
+    accessList:
+      - name: developer-role
+        roleARN: "arn:aws:iam::266735840702:role/eks-dev-role-to-test-crossplane" # Replace with your IAM Role ARN
+        policies:
+          - "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+          - "arn:aws:iam::aws:policy/AmazonEKSServicePolicy"
+    addons:
+      - name: vpc-cni
+        version: "v1.20.1-eksbuild.3"
+      - name: coredns
+        version: "v1.12.3-eksbuild.1"
+      - name: kube-proxy
+        version: "v1.33.3-eksbuild.6"
+    vpcId: "vpc-0b10f66253a3beba8" # Replace with your VPC ID
+    subnetIds:
+      - "subnet-0c9013275d430f56f" # Replace with your subnet IDs
+      - "subnet-08970ab5c20c76ee4"
+  crossplane:
+    compositionSelector:
+      matchLabels:
+        provider: aws
+        workload: ekscluster
