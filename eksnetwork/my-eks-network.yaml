@@ -1,21 +1,21 @@
-apiVersion: srujanpakanati.com/v1alpha1
-kind: EKSNetwork
-metadata:
-  name: my-eks-network
-  namespace: default
-spec:
-  parameters:
-    region: us-east-2
-    networkType: "dev"
-    vpcCidrBlock: "10.0.0.0/16"
-    availabilityZones:
-    - "us-east-2a"
-    - "us-east-2b"
-    publicSubnetCidrBlocks:
-    - "10.0.1.0/24"
-    - "10.0.2.0/24"
-  crossplane:
-    compositionSelector:
-      matchLabels:
-        provider: aws
-        workload: eksnetwork
+# apiVersion: srujanpakanati.com/v1alpha1
+# kind: EKSNetwork
+# metadata:
+#   name: my-eks-network
+#   namespace: default
+# spec:
+#   parameters:
+#     region: us-east-2
+#     networkType: "dev"
+#     vpcCidrBlock: "10.0.0.0/16"
+#     availabilityZones:
+#     - "us-east-2a"
+#     - "us-east-2b"
+#     publicSubnetCidrBlocks:
+#     - "10.0.1.0/24"
+#     - "10.0.2.0/24"
+#   crossplane:
+#     compositionSelector:
+#       matchLabels:
+#         provider: aws
+#         workload: eksnetwork
