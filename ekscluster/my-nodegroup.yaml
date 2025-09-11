@@ -1,0 +1,22 @@
+apiVersion: srujanpakanati.com/v1alpha1
+kind: EKSNodeGroup
+metadata:
+  name: my-nodegroup
+  namespace: default
+spec:
+  parameters:
+    clusterName: my-eks-cluster # This must match the name of your EKSCluster resource
+    region: us-east-2
+    nodeGroupName: my-managed-nodes
+    instanceTypes:
+      - "t3.medium"
+    scalingConfig:
+      minSize: 1
+      maxSize: 3
+      desiredSize: 2
+    subnetId: subnet-0c7420944a320ddff
+  crossplane:
+    compositionSelector:
+      matchLabels:
+        provider: aws
+        workload: eksnodegroup
