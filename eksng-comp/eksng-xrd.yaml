@@ -1,0 +1,62 @@
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: eksnodegroups.srujanpakanati.com
+spec:
+  group: srujanpakanati.com
+  names:
+    kind: EKSNodeGroup
+    plural: eksnodegroups
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    clusterName:
+                      type: string
+                      description: "Name of the EKS cluster to attach the node group to."
+                    region:
+                      type: string
+                      description: "AWS region for the EKS node group."
+                    nodeGroupName:
+                      type: string
+                      description: "Name of the EKS node group."
+                    instanceTypes:
+                      type: array
+                      items:
+                        type: string
+                      description: "EC2 instance types for the nodes."
+                    scalingConfig:
+                      type: object
+                      properties:
+                        minSize:
+                          type: integer
+                        maxSize:
+                          type: integer
+                        desiredSize:
+                          type: integer
+                      required:
+                        - minSize
+                        - maxSize
+                        - desiredSize
+                    subnetIds:
+                      type: array
+                      items:
+                        type: string
+                      description: "Subnet IDs for the node group."
+                  required:
+                    - clusterName
+                    - region
+                    - nodeGroupName
+                    - instanceTypes
+                    - scalingConfig
+                    - subnetIds

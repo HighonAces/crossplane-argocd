@@ -1,0 +1,155 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: eksnodegroup.aws.kcl
+  labels:
+    provider: aws
+    workload: eksnodegroup
+spec:
+  compositeTypeRef:
+    apiVersion: srujanpakanati.com/v1alpha1
+    kind: EKSNodeGroup
+  mode: Pipeline
+  pipeline:
+  - step: render-aws-eks-nodegroup-resources-kcl
+    functionRef:
+      name: crossplane-contrib-function-kcl
+    input:
+      apiVersion: krm.kcl.dev/v1alpha1
+      kind: KCLRun
+      spec:
+        source: |
+          xr = option("params")?.oxr
+          xrName = xr.metadata.name
+
+          # EKS Node Group Role
+          nodeRole = {
+              apiVersion: "iam.aws.m.upbound.io/v1beta1",
+              kind: "Role",
+              metadata.name = xrName + "-node-role",
+              metadata.labels = {
+                  "crossplane.io/composition-resource-name": "eks-node-role"
+              },
+              spec.forProvider.assumeRolePolicy = """{
+                      "Version": "2012-10-17",
+                      "Statement": [
+                        {
+                          "Effect": "Allow",
+                          "Principal": {
+                            "Service": "ec2.amazonaws.com"
+                          },
+                          "Action": "sts:AssumeRole"
+                        }
+                      ]
+                    }"""
+              spec.providerConfigRef: {
+                      name: "default",
+                      kind: "ClusterProviderConfig"
+              }
+          }
+          # EKS Node Group Role Policy Attachments
+          nodeRolePolicyAttachments = [
+              {
+                  apiVersion: "iam.aws.m.upbound.io/v1beta1",
+                  kind: "RolePolicyAttachment",
+                  metadata: {
+                      name: "rpa-" + xrName + "-worker-node-policy",
+                      labels: {
+                          "crossplane.io/composition-resource-name": "eks-worker-node-policy-attachment"
+                      }
+                  },
+                  spec: {
+                      forProvider: {
+                          policyArn: "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+                          roleSelector: {
+                              matchControllerRef: True
+                          }
+                      }
+                      providerConfigRef: {
+                          name: "default",
+                          kind: "ClusterProviderConfig"
+                      }
+                  }
+              },
+              {
+                  apiVersion: "iam.aws.m.upbound.io/v1beta1",
+                  kind: "RolePolicyAttachment",
+                  metadata: {
+                      name: "rpa-" + xrName + "-cni-policy",
+                      labels: {
+                          "crossplane.io/composition-resource-name": "eks-cni-policy-attachment"
+                      }
+                  },
+                  spec: {
+                      forProvider: {
+                          policyArn: "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
+                          roleSelector: {
+                              matchControllerRef: True
+                          }
+                      }
+                      providerConfigRef: {
+                          name: "default",
+                          kind: "ClusterProviderConfig"
+                      }
+                  }
+              },
+              {
+                  apiVersion: "iam.aws.m.upbound.io/v1beta1",
+                  kind: "RolePolicyAttachment",
+                  metadata: {
+                      name: "rpa-" + xrName + "-ec2-container-registry-read-only",
+                      labels: {
+                          "crossplane.io/composition-resource-name": "eks-ec2-container-registry-read-only-attachment"
+                      }
+                  },
+                  spec: {
+                      forProvider: {
+                          policyArn: "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+                          roleSelector: {
+                              matchControllerRef: True
+                          }
+                      }
+                      providerConfigRef: {
+                          name: "default",
+                          kind: "ClusterProviderConfig"
+                      }
+                  }
+              }
+          ]
+
+          # EKS Node Group
+          nodeGroup = {
+              apiVersion: "eks.aws.m.upbound.io/v1beta1",
+              kind: "NodeGroup",
+              metadata: {
+                  name: "nodegroup-" + xrName,
+                  annotations: {
+                      "crossplane.io/composition-resource-name": "eks-nodegroup"
+                  }
+              },
+              spec: {
+                  forProvider: {
+                      clusterName: xr.spec.parameters.clusterName,
+                      nodeRoleArnSelector: {
+                          matchControllerRef: True
+                      },
+                      subnetIds: xr.spec.parameters.subnetIds,
+                      instanceTypes: xr.spec.parameters.instanceTypes,
+                      scalingConfig: {
+                          minSize: xr.spec.parameters.scalingConfig.minSize,
+                          maxSize: xr.spec.parameters.scalingConfig.maxSize,
+                          desiredSize: xr.spec.parameters.scalingConfig.desiredSize
+                      },
+                      region: xr.spec.parameters.region,
+                  }
+                  providerConfigRef: {
+                      name: "default",
+                      kind: "ClusterProviderConfig"
+                  }
+              }
+          }
+
+          items = [nodeRole] + nodeRolePolicyAttachments + [nodeGroup]
+  - step: automatically-detect-ready-composed-resources
+    functionRef:
+      name: crossplane-contrib-function-auto-ready

@@ -1,0 +1,81 @@
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: eksclusters.srujanpakanati.com
+spec:
+  group: srujanpakanati.com
+  names:
+    kind: EKSCluster
+    plural: eksclusters
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    clusterName:
+                      type: string
+                      description: Name of the EKS cluster.
+                    region:
+                      type: string
+                      description: AWS region for the EKS cluster.
+                    kubernetesVersion:
+                      type: string
+                      description: Kubernetes version for the EKS cluster.
+                    accessList:
+                      type: array
+                      description: List of IAM roles/users to grant access to the cluster.
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                            description: Name of the access entry.
+                          roleARN:
+                            type: string
+                            description: ARN of the IAM role or user.
+                          policies:
+                            type: array
+                            description: List of policy ARNs to attach.
+                            items:
+                              type: string
+                        required:
+                          - name
+                          - roleARN
+                    addons:
+                      type: array
+                      description: List of EKS add-ons to install.
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                            description: Name of the add-on.
+                          version:
+                            type: string
+                            description: Version of the add-on.
+                        required:
+                          - name
+                          - version
+                    vpcId:
+                      type: string
+                      description: VPC ID where the EKS cluster will be created.
+                    subnetIds:
+                      type: array
+                      description: List of subnet IDs for the EKS cluster.
+                      items:
+                        type: string
+                  required:
+                    - clusterName
+                    - region
+                    - kubernetesVersion
+                    - vpcId
+                    - subnetIds

@@ -1,0 +1,218 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: ekscluster.aws.kcl
+  labels:
+    provider: aws
+    workload: ekscluster
+spec:
+  compositeTypeRef:
+    apiVersion: srujanpakanati.com/v1alpha1
+    kind: EKSCluster
+  mode: Pipeline
+  pipeline:
+  - step: render-aws-eks-cluster-resources-kcl
+    functionRef:
+      name: crossplane-contrib-function-kcl
+    input:
+      apiVersion: krm.kcl.dev/v1alpha1
+      kind: KCLRun
+      spec:
+        source: |
+          xr = option("params")?.oxr
+          xrName = xr.metadata.name
+
+          # EKS Cluster Role
+          clusterRole = {
+              apiVersion: "iam.aws.m.upbound.io/v1beta1",
+              kind: "Role",
+              metadata.name = xrName + "-cluster-role",
+              metadata.labels = {
+                  "crossplane.io/composition-resource-name": "eks-cluster-role"
+              },
+              spec.forProvider.assumeRolePolicy = """{
+                      "Version": "2012-10-17",
+                      "Statement": [
+                        {
+                          "Effect": "Allow",
+                          "Principal": {
+                            "Service": "eks.amazonaws.com"
+                          },
+                          "Action": "sts:AssumeRole"
+                        }
+                      ]
+                    }"""
+              spec.providerConfigRef: {
+                      name: "default",
+                      kind: "ClusterProviderConfig"
+                  }
+          }
+
+          # EKS Cluster Role Policy Attachments
+          clusterRolePolicyAttachments = [
+              {
+                  apiVersion: "iam.aws.m.upbound.io/v1beta1",
+                  kind: "RolePolicyAttachment",
+                  metadata: {
+                      name: "rpa-" + xrName + "-cluster-policy",
+                      labels: {
+                          "crossplane.io/composition-resource-name": "eks-cluster-policy-attachment"
+                      }
+                  },
+                  spec: {
+                      forProvider: {
+                          policyArn: "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
+                          roleSelector: {
+                              matchControllerRef: True
+                          }
+                      }
+                      providerConfigRef: {
+                          name: "default",
+                          kind: "ClusterProviderConfig"
+                      }
+                  }
+              },
+              {
+                  apiVersion: "iam.aws.m.upbound.io/v1beta1",
+                  kind: "RolePolicyAttachment",
+                  metadata: {
+                      name: "rpa-" + xrName + "-service-policy",
+                      labels: {
+                          "crossplane.io/composition-resource-name": "eks-service-policy-attachment"
+                      }
+                  },
+                  spec: {
+                      forProvider: {
+                          policyArn: "arn:aws:iam::aws:policy/AmazonEKSServicePolicy",
+                          roleSelector: {
+                              matchControllerRef: True
+                          }
+                      }
+                      providerConfigRef: {
+                          name: "default",
+                          kind: "ClusterProviderConfig"
+                      }
+                  }
+              }
+          ]
+
+          # EKS Cluster
+          cluster = {
+              apiVersion: "eks.aws.m.upbound.io/v1beta1",
+              kind: "Cluster",
+              metadata: {
+                  name: "cluster-" + xrName,
+                  annotations: {
+                      "crossplane.io/composition-resource-name": "eks-cluster"
+                  }
+              },
+              spec: {
+                  forProvider: {
+                      region: xr.spec.parameters.region,
+                      version: xr.spec.parameters.kubernetesVersion,
+                      roleArnSelector: {
+                          matchControllerRef: True
+                      },
+                      vpcConfig: {
+                          subnetIds: xr.spec.parameters.subnetIds
+                      }
+                  }
+                  providerConfigRef: {
+                      name: "default",
+                      kind: "ClusterProviderConfig"
+                  }
+              }
+          }
+          # EKS Addons
+          addons = [
+              {
+                  apiVersion: "eks.aws.m.upbound.io/v1beta1",
+                  kind: "Addon",
+                  metadata: {
+                      name: "addon-" + xrName + "-" + addon.name,
+                      annotations: {
+                          "crossplane.io/composition-resource-name": "addon-" + addon.name
+                      }
+                  },
+                  spec: {
+                      forProvider: {
+                          region: xr.spec.parameters.region,
+                          clusterNameSelector: {
+                              matchControllerRef: True
+                          },
+                          addonName: addon.name,
+                          addonVersion: addon.version
+                      }
+                      providerConfigRef: {
+                          name: "default",
+                          kind: "ClusterProviderConfig"
+                      }
+                  }
+              } for addon in xr.spec.parameters.addons or []
+          ]
+
+          # EKS Access Entries
+          accessEntries = [
+              {
+                  apiVersion: "eks.aws.m.upbound.io/v1beta1",
+                  kind: "AccessEntry",
+                  metadata: {
+                      name: "ae-" + xrName + "-" + access.name,
+                      annotations: {
+                          "crossplane.io/composition-resource-name": "access-entry-" + access.name
+                      }
+                  },
+                  spec: {
+                      forProvider: {
+                          region: xr.spec.parameters.region,
+                          clusterNameSelector: {
+                              matchControllerRef: True
+                          },
+                          principalArn: access.roleARN,
+                          type: "STANDARD"
+                      }
+                      providerConfigRef: {
+                          name: "default",
+                          kind: "ClusterProviderConfig"
+                      }
+                  }
+              } for access in xr.spec.parameters.accessList or []
+          ]
+
+          # EKS Access Policy Associations
+          accessPolicyAssociations = [
+              {
+                  apiVersion: "eks.aws.m.upbound.io/v1beta1",
+                  kind: "AccessPolicyAssociation",
+                  metadata: {
+                      name: "apa-" + xrName + "-" + access.name + "-" + str(i),
+                      annotations: {
+                          "crossplane.io/composition-resource-name": "apa-" + access.name + "-" + str(i)
+                      }
+                  },
+                  spec: {
+                      forProvider: {
+                          clusterNameSelector: {
+                              matchControllerRef: True
+                          },
+                          policyArn: access.policies[i],
+                          principalArn: access.roleARN,
+                          accessScope: {
+                              type: "cluster"
+                          }
+                      }
+                      providerConfigRef: {
+                          name: "default",
+                          kind: "ClusterProviderConfig"
+                      }
+                  }
+              }
+              for access in xr.spec.parameters.accessList or []
+              for i in range(len(access.policies or [])) 
+          ]
+
+          items = [clusterRole] + clusterRolePolicyAttachments + [cluster] + addons + accessEntries + accessPolicyAssociations
+
+  - step: automatically-detect-ready-composed-resources
+    functionRef:
+      name: crossplane-contrib-function-auto-ready

@@ -1,0 +1,81 @@
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: eksnetworks.srujanpakanati.com
+spec:
+  scope: Namespaced
+  group: srujanpakanati.com
+  names:
+    kind: EKSNetwork
+    plural: eksnetworks
+  versions:
+  - name: v1alpha1
+    served: true
+    referenceable: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              crossplane:
+                type: object
+                properties:
+                  compositionSelector:
+                    type: object
+                    properties:
+                      matchLabels:
+                        type: object
+                        additionalProperties:
+                          type: string
+              parameters:
+                type: object
+                properties:
+                  networkType:
+                    type: string
+                    description: "The type of network to provision."
+                    enum:
+                    - "dev"
+                    - "prod"
+                  region:
+                    type: string
+                    description: "AWS region to provision the network in."
+                  vpcCidrBlock:
+                    type: string
+                    description: "CIDR block for the VPC."
+                  availabilityZones:
+                    type: array
+                    description: "List of Availability Zones to create subnets in."
+                    items:
+                      type: string
+                  publicSubnetCidrBlocks:
+                    type: array
+                    description: "List of CIDR blocks for public subnets. Must match the number of AZs."
+                    items:
+                      type: string
+                  privateSubnetCidrBlocks:
+                    type: array
+                    description: "List of CIDR blocks for private subnets. Must match the number of AZs."
+                    items:
+                      type: string
+                required:
+                - region
+                - vpcCidrBlock
+                - availabilityZones
+                - networkType
+          status:
+            type: object
+            properties:
+              vpcId:
+                type: string
+              publicSubnetIds:
+                type: array
+                items:
+                  type: string
+              privateSubnetIds:
+                type: array
+                items:
+                  type: string
+              clusterSecurityGroupId:
+                type: string

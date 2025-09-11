@@ -1,0 +1,174 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: eksnetwork.aws.kcl
+  labels:
+    provider: aws
+    workload: eksnetwork
+spec:
+  compositeTypeRef:
+    apiVersion: srujanpakanati.com/v1alpha1
+    kind: EKSNetwork
+  mode: Pipeline
+  pipeline:
+  - step: render-aws-network-resources-kcl
+    functionRef:
+      name: crossplane-contrib-function-kcl
+    input:
+      apiVersion: krm.kcl.dev/v1alpha1
+      kind: KCLRun
+      spec:
+        source: |
+          xr = option("params")?.oxr
+          xrName = xr.metadata.name
+          xrNamespace = xr.metadata.namespace
+          ocds = option("params")?.ocds
+          vpc = {
+            apiVersion: "ec2.aws.m.upbound.io/v1beta1",
+            kind: "VPC",
+            metadata: {
+              name: "vpc-" + xrName,
+              annotations: {
+                "crossplane.io/composition-resource-name": "vpc"
+              }
+            },
+            spec: {
+              # deletionPolicy: "Delete"
+              forProvider: {
+                region: xr.spec.parameters.region
+                cidrBlock: xr.spec.parameters.vpcCidrBlock
+                tags = {
+                  "networkType" = xr.spec.parameters.networkType
+                }
+              }
+              providerConfigRef: {
+                name: "default"
+                kind: "ClusterProviderConfig"
+              }
+            }
+          }
+
+  
+          subnets = [
+            {
+              apiVersion: "ec2.aws.m.upbound.io/v1beta1",
+              kind: "Subnet",
+              metadata: {
+                name: "subnet-" + xrName + "-" + str(i + 1),
+                labels: {
+                  "crossplane.io/composite": xrName
+                  "subnet-index": str(i + 1)
+                }
+                annotations: {
+                  "crossplane.io/composition-resource-name": "subnet-" + str(i + 1)
+                }
+              }
+              spec: {
+                forProvider: {
+                  region: xr.spec.parameters.region,
+                  vpcIdSelector: {
+                    matchControllerRef: True
+                  }
+                  cidrBlock: xr.spec.parameters.publicSubnetCidrBlocks[i],
+                  availabilityZone: xr.spec.parameters.availabilityZones[i],
+                  mapPublicIpOnLaunch: True,
+                  tags: {
+                    "networkType": xr.spec.parameters.networkType
+                  }
+                }
+              providerConfigRef: {
+                name: "default"
+                kind: "ClusterProviderConfig"
+              }
+              }
+            } for i in range(len(xr.spec.parameters.publicSubnetCidrBlocks))
+          ]
+          internetGateway = {
+            apiVersion: "ec2.aws.m.upbound.io/v1beta1",
+            kind: "InternetGateway",
+            metadata: {
+              name: "igw-" + xrName,
+              annotations: {
+                "crossplane.io/composition-resource-name": "internet-gateway"
+              }
+            }
+            spec: {
+              forProvider: {
+                region: xr.spec.parameters.region,
+                tags: {
+                  "networkType": xr.spec.parameters.networkType
+                }
+                vpcIdSelector: {
+                  matchControllerRef: True
+                }
+              }
+              providerConfigRef: {
+                name: "default"
+                kind: "ClusterProviderConfig"
+              }
+            }
+          }
+          routeTable = {
+            apiVersion: "ec2.aws.m.upbound.io/v1beta1",
+            kind: "RouteTable",
+            metadata: {
+              name: "rtb-" + xrName,
+              annotations: {
+                "crossplane.io/composition-resource-name": "route-table"
+              }
+            }
+            spec: {
+              forProvider: {
+                region: xr.spec.parameters.region,
+                vpcIdSelector: {
+                  matchControllerRef: True
+                }
+                tags: {
+                  "networkType": xr.spec.parameters.networkType
+                }
+              }
+              providerConfigRef: {
+                name: "default"
+                kind: "ClusterProviderConfig"
+              }
+            }
+          }
+          routeTableAssociations = [
+            {
+              apiVersion: "ec2.aws.m.upbound.io/v1beta1",
+              kind: "RouteTableAssociation",
+              metadata: {
+                name: "rtb-assoc-" + xrName + "-" + str(i + 1),
+                annotations: {
+                  "crossplane.io/composition-resource-name": "route-table-assoc-" + str(i + 1)
+                }
+              }
+              spec: {
+                forProvider: {
+                  region: xr.spec.parameters.region,
+                  routeTableIdSelector: {
+                    matchControllerRef: True
+                  }
+                  subnetIdSelector: {
+                    matchControllerRef: True,
+                    matchLabels: {
+                      "subnet-index": str(i + 1),
+                      "crossplane.io/composite": xrName
+                    }
+                  }
+                }
+                providerConfigRef: {
+                  name: "default"
+                  kind: "ClusterProviderConfig"
+                }
+              }
+            } for i in range(len(xr.spec.parameters.publicSubnetCidrBlocks))
+          ]
+          items = [
+            vpc 
+            internetGateway
+            routeTable
+          ] + subnets + routeTableAssociations
+  - step: automatically-detect-ready-composed-resources
+    functionRef:
+      name: crossplane-contrib-function-auto-ready
