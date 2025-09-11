@@ -5,7 +5,7 @@ metadata:
   namespace: default
 spec:
   parameters:
-    clusterName: my-eks-cluster # This must match the name of your EKSCluster resource
+    clusterName: cluster-my-eks-cluster # This must match the name of your EKSCluster resource
     region: us-east-2
     nodeGroupName: my-managed-nodes
     instanceTypes:
